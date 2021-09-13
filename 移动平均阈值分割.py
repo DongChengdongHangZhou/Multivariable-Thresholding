@@ -46,6 +46,6 @@ def movingthreshold(f, n, k):
     return g
 
 
-img = cv2.imread('0.bmp', 0)
+img = cv2.imread('1.png', 0)
 res = movingthreshold(img, N, b)
 cv2.imwrite('tttt.jpg', res)
