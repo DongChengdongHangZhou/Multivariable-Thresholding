@@ -1,55 +1,51 @@
-#!/usr/bin/python
-# -*- coding: UTF-8 -*-
-
 import cv2
-from numpy import *
-import random
+import numpy as np
+from scipy.signal import lfilter
 
-'''	
-对输入图像作移动平均分割
-image为单通道灰度图像
-num表示计算平均的点数
-'''
-def movingthresh(image, num): 
-	#print(data)
-	width = image.shape[0]
-	height = image.shape[1]
-	widthStep = width
-	data = image.flatten()  # 转换成一维向量
-	dstdata = data.copy()
-	#print(height)
-	#print(width)
-	while widthStep % 2 != 0: #widthStep必须是4的倍数
-		widthStep += 1
-	n = float(num)
-	m_pre = data[0]/n
-	b = 0.5
-	for i in range(height):
-		for j in range(width):
-			index = i * widthStep + j
-			if index < num + 1:
-				dif = data[index]
-			else:
-				dif = int(data[index]) - int(data[index-num-1])
-			dif *= 1/n
-			m_now = m_pre + dif
-			m_pre = m_now
-			if data[index] > round(b * m_now):
-				dstdata[index] = 255
-			else:
-				dstdata[index] = 0
-	return array(dstdata).reshape(width, height)
+N = 30
+b = 0.99
+
+def max_min_value_filter(image, ksize=3, mode=1):
+    img = image.copy()
+    rows, cols = img.shape
+    # if channels == 3:
+    #     img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    padding = (ksize-1) // 2
+    new_img = cv2.copyMakeBorder(img, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=255)
+    for i in range(rows):
+        for j in range(cols):
+            roi_img = new_img[i:i+ksize, j:j+ksize].copy()
+            min_val, max_val, min_index, max_index = cv2.minMaxLoc(roi_img)
+            if mode == 1:
+                img[i, j] = max_val
+            elif mode == 2:
+                img[i, j] = min_val
+            else:
+                raise Exception("please Select a Mode: max(1) or min(2)")
+
+    return img
 
 
+def movingthreshold(f, n, k):
+    shape = f.shape
+    assert n >= 1
+    assert 0 < k < 1
+    f[1:-1:2, :] = np.fliplr(f[1:-1:2, :])
+    f = f.flatten()
+    maf = np.ones(n) / n
+    res_filter = lfilter(maf, 1, f)
+    g = np.array(f > k * res_filter).astype(int)
+    g = g.reshape(shape)
+    g[1:-1:2, :] = np.fliplr(g[1:-1:2, :])
+    g = g * 255
 
-if __name__ == '__main__':
-	# 读入图像
-	srcImage = cv2.imread("1.png", 0)
-	if srcImage is None:
-		print("Failed to read source image.")
-		exit()
-	cv2.imshow("source image", srcImage)
+    # max value filter
+    # g = max_min_value_filter(g, 3, 2)
+    # cv2.blur(g, (3, 3))
 
-	dstImage = movingthresh(srcImage,2)
-	cv2.imshow("dstImage", dstImage)
-	cv2.waitKey(0)
+    return g
+
+
+img = cv2.imread('0.bmp', 0)
+res = movingthreshold(img, N, b)
+cv2.imwrite('tttt.jpg', res)
